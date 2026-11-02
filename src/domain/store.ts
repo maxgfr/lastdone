@@ -103,7 +103,7 @@ function toInfinitive(word: string): string {
   return word
 }
 
-// Persistence: tasks plus an append-only log, kept in localStorage.
+// Persistence: tasks plus an append-only log, kept in IndexedDB (see ./idb.ts).
 
 export interface Task {
   id: string
@@ -126,10 +126,12 @@ export interface Data {
 
 export interface KeyValue {
   getItem(key: string): string | null
-  setItem(key: string, value: string): void
+  /** Asynchronous backends return a promise; a rejection means the value was not stored. */
+  setItem(key: string, value: string): void | Promise<void>
 }
 
 export const STORAGE_KEY = 'lastdone:data'
+export const NOT_SAVED = 'This browser refused to save (its storage may be full), so the change only lasts until you close the tab.'
 const SCHEMA_VERSION = 1
 
 const empty = (): Data => ({ version: SCHEMA_VERSION, tasks: [], log: [] })
@@ -151,7 +153,7 @@ function isValidDate(value: unknown): value is string {
   return typeof value === 'string' && !Number.isNaN(Date.parse(value))
 }
 
-/** Validates untrusted data (localStorage or an imported file). Throws on bad shape. */
+/** Validates untrusted data (stored or from an imported file). Throws on bad shape. */
 export function parseData(raw: unknown): Data {
   if (typeof raw !== 'object' || raw === null) throw new Error('Invalid format: an object is expected.')
   const { version, tasks, log } = raw as Record<string, unknown>
@@ -212,15 +214,24 @@ export class Store {
 
   private write(key: string, value: string): boolean {
     try {
-      this.storage?.setItem(key, value)
+      const pending = this.storage?.setItem(key, value)
+      this.pending = pending ? pending.then(() => true, () => false) : Promise.resolve(true)
       return true
     } catch {
+      this.pending = Promise.resolve(false)
       return false
     }
   }
 
-  /** False when the browser refused the write (quota, private mode). */
+  private pending: Promise<boolean> = Promise.resolve(true)
+
+  /** False when the browser refused the write synchronously (quota, private mode). */
   lastSaveOk = true
+
+  /** Resolves to whether the last change actually reached storage, asynchronous backends included. */
+  saved(): Promise<boolean> {
+    return this.pending
+  }
 
   private commit(next: Data) {
     this.data = next

@@ -1,5 +1,5 @@
 import { useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react'
-import type { Store } from '../domain/store'
+import { NOT_SAVED, type Store } from '../domain/store'
 import { MODELS, onMeteredConnection, type EngineState, type ModelId } from '../llm/engine'
 import { buildIcs } from './ics'
 
@@ -43,11 +43,15 @@ export function Settings({ store, llm, webgpu, now, onModel, onEnableAi }: Props
     setMessage(undefined)
   }
 
-  const runImport = () => {
+  const runImport = async () => {
     if (!confirmImport) return
     try {
       store.importJSON(confirmImport)
-      setMessage({ tone: 'ok', text: `Imported ${store.tasks.length} chores and ${store.log.length} entries.` })
+      const imported = `Imported ${store.tasks.length} chores and ${store.log.length} entries.`
+      setConfirmImport(undefined)
+      if (await store.saved()) setMessage({ tone: 'ok', text: imported })
+      else setMessage({ tone: 'warn', text: `${imported} ${NOT_SAVED}` })
+      return
     } catch (err) {
       setMessage({ tone: 'warn', text: `Nothing was imported: ${err instanceof Error ? err.message : String(err)}` })
     }

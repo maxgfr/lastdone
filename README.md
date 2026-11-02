@@ -47,7 +47,7 @@ The AI needs WebGPU: recent Chrome or Edge on desktop and Android, and Safari 26
 
 ## Privacy
 
-Chores and their history are stored in `localStorage` in your browser. Nothing is sent anywhere. The only network requests are the app itself and, if you turn the AI on, the model files from Hugging Face. Use **Settings → Export JSON** to back up or move your data, since clearing site data deletes it.
+Chores and their history are stored in your browser (IndexedDB; settings in `localStorage`). Nothing is sent anywhere. The only network requests are the app itself and, if you turn the AI on, the model files from Hugging Face. Use **Settings → Export JSON** to back up or move your data, since clearing site data deletes it.
 
 ## Development
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { byUrgency, status } from './domain/schedule'
-import { Store } from './domain/store'
+import { openStorage } from './domain/idb'
+import { NOT_SAVED, Store } from './domain/store'
 import { execute, type Reply } from './intent/execute'
 import { parseRules } from './intent/rules'
 import type { Intent } from './intent/schema'
@@ -29,7 +30,7 @@ function writeSetting(key: string, value: string) {
 }
 
 const savedModel = readSetting(MODEL_KEY)
-const store = new Store()
+const store = new Store(await openStorage())
 const engine = new LlmEngine(MODELS.some((m) => m.id === savedModel) ? (savedModel as ModelId) : DEFAULT_MODEL)
 
 /** Ticks every minute so relative dates and statuses roll over (midnight included). */
@@ -114,10 +115,14 @@ export function App() {
     (intents: Intent[], source: Answer['source'], confirmed = false): Reply => {
       let reply: Reply = { tone: 'info', text: '' }
       for (const intent of intents) reply = execute(intent, store, new Date(), { confirmed })
-      if (!store.lastSaveOk) {
-        reply = { ...reply, tone: 'warn', text: `${reply.text} This browser refused to save, so the change only lasts until you close the tab.` }
-      }
+      const notSaved = (r: Reply): Reply => ({ ...r, tone: 'warn', text: `${r.text} ${NOT_SAVED}` })
+      if (!store.lastSaveOk) reply = notSaved(reply)
       setAnswer({ reply, source })
+      const shown = reply
+      // IndexedDB reports a refused write (storage full) only once the transaction ends.
+      void store.saved().then((ok) => {
+        if (!ok && store.lastSaveOk) setAnswer((current) => (current?.reply === shown ? { reply: notSaved(shown), source } : current))
+      })
       return reply
     },
     [],
