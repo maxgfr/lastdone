@@ -29,7 +29,7 @@ A language model runs inside the browser (WebLLM on WebGPU) and only translates 
 
 - Tasks have a name, aliases and an optional interval in days; the log is append-only.
 - Status per task: ok, soon, overdue. List sorted by urgency.
-- Storage is localStorage only, with JSON export/import.
+- Storage is in the browser only (IndexedDB for chores and history, localStorage for settings), with JSON export/import.
 - Input understood in French and English; all interface copy is in English.
 - Out of scope: sync, accounts, push notifications while closed, remote LLM providers.
 
